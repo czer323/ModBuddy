@@ -28,7 +28,7 @@ class SourceBase:
     download_url: str
 
     @classmethod
-    def from_url(cls, url: str) -> "SourceBase":
+    def from_url(cls, url: str, folders: list[str] | None = None) -> "SourceBase":
         raise NotImplementedError
 
     @classmethod

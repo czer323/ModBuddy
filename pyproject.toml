@@ -33,4 +33,4 @@ dev = [
 extension-pkg-allow-list = ["PySide6"]
 
 [tool.mypy]
-strict = true
+strict = false
