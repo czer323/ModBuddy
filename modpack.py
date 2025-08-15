@@ -1,55 +1,137 @@
+"""Mod management and hard-linking logic for ModBuddy.
+
+This module provides the ModPack class and supporting functions to automate
+mod application for games, using hard links to avoid data duplication and
+supporting arbitrary mod folder structures. Mods are applied by creating
+hard links from the source mod folder to the destination folder, preserving
+space and enabling flexible mod management.
+
+Typical usage example:
+
+    mod_pack = ModPack(Path('mod_folder'), Path('game_folder'))
+    mod_pack.add_mod()
+"""
+
 from pathlib import Path
+from typing import Any
 
 
-class ModPack():
-    def __init__(self, mod_folder: Path, destination_folder: Path, case_sensitive=False):
-        self.modname = mod_folder.name
-        self.mod_folder = mod_folder
-        self.out_p = destination_folder
-        self.case_sensitive = case_sensitive
+class ModPack:
+    """Represents a mod pack and manages hard-linking mods to a destination folder.
 
-    def convert_from_input_to_output(self, in_path: Path):
-        abs_input = str(in_path.resolve())
-        x = abs_input.replace(str(self.mod_folder.resolve()), '').lstrip('/')
+    Attributes:
+        modname: The name of the mod.
+        mod_folder: The source folder containing the mod files.
+        out_p: The destination folder for hard-linked mod files.
+        case_sensitive: Whether file paths are treated as case-sensitive.
+    """
+
+    def __init__(
+        self, mod_folder: Path, destination_folder: Path, case_sensitive: bool = False
+    ) -> None:
+        """Initializes a ModPack instance.
+
+        Args:
+            mod_folder: The source folder containing the mod files.
+            destination_folder: The destination folder for hard-linked mod files.
+            case_sensitive: Whether file paths are treated as case-sensitive.
+        """
+        self.modname: str = mod_folder.name
+        self.mod_folder: Path = mod_folder
+        self.out_p: Path = destination_folder
+        self.case_sensitive: bool = case_sensitive
+
+    def convert_from_input_to_output(self, in_path: Path) -> Path:
+        """Converts a source mod file/folder path to its destination path.
+
+        Args:
+            in_path: The input path within the mod folder.
+
+        Returns:
+            The corresponding output path in the destination folder.
+        """
+        abs_input: str = str(in_path.resolve())
+        x: str = abs_input.replace(str(self.mod_folder.resolve()), "").lstrip("/")
         if not self.case_sensitive:
             x = x.lower()
-        output = self.out_p.joinpath(x)
+        output: Path = self.out_p.joinpath(x)
         return output
 
-    def handle_symlinking(self, file_path: Path):
-        target_path = self.convert_from_input_to_output(file_path)
+    def handle_symlinking(self, file_path: Path) -> None:
+        """Creates a hard link for a mod file at the destination path.
+
+        If the destination file already exists, it is deleted before linking.
+
+        Args:
+            file_path: The source file path to link from.
+        """
+        target_path: Path = self.convert_from_input_to_output(file_path)
         if target_path.exists():
             # print("DELETE {}".format(target_path))
             target_path.unlink()
         # print("{} --> {}".format(file_path.resolve(), target_path.resolve()))
-        file_path.link_to(target_path)
+        file_path.hardlink_to(target_path)
 
-    def create_folder(self, folder_path: Path):
-        output_path = self.convert_from_input_to_output(folder_path)
+    def create_folder(self, folder_path: Path) -> None:
+        """Creates the corresponding destination folder for a mod folder.
+
+        Args:
+            folder_path: The source folder path to create in the destination.
+        """
+        output_path: Path = self.convert_from_input_to_output(folder_path)
         output_path.mkdir(exist_ok=True)
 
-    def add_mod(self):
-        for input_path in self.mod_folder.glob('**/*'):
+    def add_mod(self) -> None:
+        """Applies the mod by hard-linking all files and creating folders in the destination.
+
+        Iterates through all files and folders in the mod folder, creating corresponding
+        folders and hard links in the destination folder.
+        """
+        for input_path in self.mod_folder.glob("**/*"):
             if input_path.is_dir():
                 self.create_folder(input_path)
                 continue
             self.handle_symlinking(input_path)
 
 
-def initialize_configs(profile_payload: dict, mod_list: dict, input_folder: Path, output_folder: Path):
+def initialize_configs(
+    profile_payload: Any,
+    mod_list: dict[str, Any],
+    input_folder: Path,
+    output_folder: Path,
+) -> None:
+    """Initializes and applies enabled mods from a profile payload.
+
+    Iterates through the profile payload, applying enabled mods by creating
+    ModPack instances and invoking their add_mod method. Handles both regular
+    mods and fomod-type mods with options.
+
+    Args:
+        profile_payload: The profile configuration containing mod entries.
+        mod_list: A mapping of mod names to their source folder paths.
+        input_folder: The root folder containing all mod sources.
+        output_folder: The destination folder for applied mods.
+    """
     for single_mod in profile_payload:
-        if not single_mod.get('enabled'):
+        if not single_mod.get("enabled"):
             continue
 
-        if single_mod.get('type') == 'fomod':
-            for fomod_x in single_mod.get('options').values():
-                target_folder = input_folder / mod_list.get(single_mod.get('name')) / fomod_x.get('source')
-                fomod_output_folder = output_folder / fomod_x.get('destination')
-                mod_pack = ModPack(target_folder, fomod_output_folder)
+        mod_name = single_mod.get("name")
+        mod_path = mod_list.get(mod_name)
+        if mod_path is None:
+            continue
+
+        if single_mod.get("type") == "fomod":
+            for fomod_x in single_mod.get("options").values():
+                fomod_source = fomod_x.get("source")
+                fomod_dest = fomod_x.get("destination")
+                if fomod_source is None or fomod_dest is None:
+                    continue
+                fomod_target_folder: Path = input_folder / mod_path / fomod_source
+                fomod_output_folder: Path = output_folder / fomod_dest
+                mod_pack = ModPack(fomod_target_folder, fomod_output_folder)
                 mod_pack.add_mod()
-
         else:
-            target_folder = input_folder / mod_list.get(single_mod.get('name'))
-            x = ModPack(target_folder, output_folder)
-            x.add_mod()
-
+            regular_target_folder: Path = input_folder / mod_path
+            mod_pack = ModPack(regular_target_folder, output_folder)
+            mod_pack.add_mod()

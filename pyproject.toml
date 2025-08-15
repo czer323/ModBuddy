@@ -1,0 +1,36 @@
+[project]
+name = "modbuddy"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4",
+    "bs4",
+    "certifi",
+    "charset-normalizer",
+    "httpx>=0.28.1",
+    "idna",
+    "patool",
+    "PySide6",
+    "PySide6-Addons",
+    "PySide6-Essentials",
+    "requests",
+    "shiboken6",
+    "soupsieve",
+    "urllib3",
+]
+
+[dependency-groups]
+dev = [
+    "pyside6-stubs>=6.7.3.0",
+    "types-beautifulsoup4>=4.12.0.20250516",
+    "types-requests>=2.32.4.20250809",
+]
+
+
+[tool.pylint.'MAIN']
+extension-pkg-allow-list = ["PySide6"]
+
+[tool.mypy]
+strict = true

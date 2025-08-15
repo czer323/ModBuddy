@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
-import sys
 import hashlib
-from os import path as ospath
-from fomod import FomodParser
-from time import sleep
+import json
+import sys
 from datetime import datetime
-import models
+from os import path as ospath
 from pathlib import Path
+from time import sleep
+
+import patoolib
+from PySide6.QtCore import QCoreApplication, QFile, QIODevice, Qt
+from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
+    QFileSystemModel,
     QInputDialog,
     QLineEdit,
-    QMessageBox,
     QMainWindow,
-    QFileSystemModel,
-    QApplication,
+    QMessageBox,
 )
-from PySide6.QtCore import QFile, QIODevice, QCoreApplication, Qt
-from PySide6.QtUiTools import QUiLoader
-import patoolib
+
+import models
 import modpack
-import json
-import sources
+import sources.sources_base as sources_base
+from fomod import FomodParser
 
 PROJECT_PATH = Path(ospath.dirname(sys.argv[0])).resolve()
 INPUT_FOLDER = PROJECT_PATH / Path("input")
@@ -38,7 +40,6 @@ PATH_COLUMN = 2
 
 class Modbuddy:
     def __init__(self, ui: QMainWindow):
-
         self.ui = ui
         self.fomod = None
         self.sources = None
@@ -76,7 +77,6 @@ class Modbuddy:
         self.ui.source_export.clicked.connect(self.export_source)
         self.ui.source_check_updates.clicked.connect(self.update_sources)
         self.ui.source_download.clicked.connect(self.download_sources)
-
 
         self.update_game_combobox()
         self.init_tablewidget()
@@ -514,16 +514,16 @@ class Modbuddy:
             return
         total_length = len(self.game_setting.get("sources"))
         for i, source in enumerate(self.game_setting.get("sources")):
-            sourceclass = sources.get_class_classifier(source["url"])
+            sourceclass = sources_base.get_class_classifier(source["url"])
             test = sourceclass.from_dict(source)
             test.update()
             source.update(test.to_dict())
-            print(f"{i+1}/{total_length} - Updated metadata for {test.title}")
+            print(f"{i + 1}/{total_length} - Updated metadata for {test.title}")
         self.sourcemodel.layoutChanged.emit()
         self.write_preset_to_config()
         QMessageBox.information(self.ui, "Done", "Mod table are up to date")
 
-    def _assert_mods_is_added_from_source(self, mod: sources.SourceModdb):
+    def _assert_mods_is_added_from_source(self, mod: sources_base.SourceModdb):
         """Assert that the subfolders from a mod exists. If they do not exist, create them as new mods."""
         default_mod_folder = Path(self.game_setting.get("default_mod_folder"))
         mod_settings = self.game_setting["mods"]
@@ -546,10 +546,12 @@ class Modbuddy:
         downloaded_something = False
         total_length = len(self.game_setting.get("sources"))
         for i, source in enumerate(self.game_setting.get("sources")):
-            source_object = sources.get_class_classifier(source["url"]).from_dict(
+            source_object = sources_base.get_class_classifier(source["url"]).from_dict(
                 source
             )
-            print(f"{source_object.title} {source_object.installed} - {source_object.updated}")
+            print(
+                f"{source_object.title} {source_object.installed} - {source_object.updated}"
+            )
             if source_object.updated:
                 last_updated = max(source_object.added, source_object.updated)
             else:
@@ -565,11 +567,11 @@ class Modbuddy:
                     print(f"Downloading {source_object.download_url=} to {dl_path=}")
                     source_object.download_file(dl_path)
                 try:
-                    print(f"{i+1}/{total_length} - {downloaded_file=}")
+                    print(f"{i + 1}/{total_length} - {downloaded_file=}")
                     patoolib.extract_archive(
                         str(downloaded_file), outdir=str(dl_path), interactive=False
                     )
-                    if isinstance(source_object, sources.SourceGitHub):
+                    if isinstance(source_object, sources_base.SourceGitHub):
                         # Folders from github is laid out as "Name-Project-SHA"
                         # This is a neat workaroud to avoid renaming mods everytime there in an update
                         git_downloaded_root = [
@@ -581,12 +583,12 @@ class Modbuddy:
                     source_object.installed = datetime.now()
                     self._assert_mods_is_added_from_source(source_object)
                     source.update(source_object.to_dict())
-                except Exception as e:
+                except Exception:
                     raise
-                print(f"{i+1}/{total_length} - finished")
+                print(f"{i + 1}/{total_length} - finished")
                 downloaded_something = True
             else:
-                print(f"{i+1}/{total_length} - No need to download")
+                print(f"{i + 1}/{total_length} - No need to download")
         if downloaded_something:
             QMessageBox.information(self.ui, "Done", "Sources are downloaded")
         else:
@@ -609,11 +611,11 @@ class Modbuddy:
                 try:
                     if ";" in urlgroup:
                         url, folders = urlgroup.split(";", 1)
-                        sourceclass = sources.get_class_classifier(url)
+                        sourceclass = sources_base.get_class_classifier(url)
                         tmp_source = sourceclass.from_url(url, folders.split(";"))
                         self.game_setting.get("sources").append(tmp_source.to_dict())
                     else:
-                        sourceclass = sources.get_class_classifier(urlgroup)
+                        sourceclass = sources_base.get_class_classifier(urlgroup)
                         tmp_source = sourceclass.from_url(urlgroup)
                         self.game_setting.get("sources").append(tmp_source.to_dict())
                     print(f"Added {tmp_source.title}")
@@ -662,12 +664,10 @@ everything inside this folder?\n{del_path_target}",
         msgBox = QMessageBox()
         msgBox.setText("Apply mods")
         msgBox.setInformativeText(
-            (
-                "This will delete all content inside:\n"
-                f"{target_mod_folder.resolve()}\n"
-                "and start to apply mods:\n\n"
-                "Do you want to proceed?"
-            )
+            "This will delete all content inside:\n"
+            f"{target_mod_folder.resolve()}\n"
+            "and start to apply mods:\n\n"
+            "Do you want to proceed?"
         )
         msgBox.setDetailedText(enabled_mods)
         msgBox.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)

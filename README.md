@@ -13,11 +13,11 @@ After attempting to mod Stalker Anomaly, i had issues finding good tools for the
 - Prioritize mod order
 
 ### Future dreams
+
 - Conflict detection
 - Revert a modified folder to its unmodded state
 - More user friendlyness
 - Use relative paths on mod settings
-
 
 ## Cases
 
@@ -31,18 +31,18 @@ This is one use case i find practical. Rather than merging all the patches i wan
 
 - STALKER Anomaly
 
-Stalker anomaly has a big variety of addons/mods, and as a lot of the mods overlap with varying grade of compabillity. This workflow is easily manageable as well. Since not all addons have the same file structure ('ROOT/gamedata'), Mod buddy is developed to handle such cases as well.
+Stalker anomaly has a big variety of addons/mods, and as a lot of the mods overlap with varying grade of compatibility. This workflow is easily manageable as well. Since not all addons have the same file structure ('ROOT/gamedata'), Mod buddy is developed to handle such cases as well.
 
 ## Explanation
 
-Modbuddy is leveraging the usage of hard links to both avoid duplicated data and avoid any suprises in regards to the filesystem. This is the main functionality residing in [modpack.py](https://github.com/OlavStornes/ModBuddy/blob/master/modpack.py)
+Modbuddy is leveraging the usage of hard links to both avoid duplicated data and avoid any surprises in regards to the filesystem. This is the main functionality residing in [modpack.py](https://github.com/OlavStornes/ModBuddy/blob/master/modpack.py)
 
 ![Flow example](docs/img/modbuddy_flow.jpeg)
 
 ## Usage
 
 - Requirements can be retrieved with `pip install -r requirements.txt`
-- Run via `main.py` 
+- Run via `main.py`
 
 ### Set up a game folder
 
@@ -50,25 +50,28 @@ Modbuddy is leveraging the usage of hard links to both avoid duplicated data and
 ![Empty mod buddy](docs/img/Screenshot_20210303_220901.png)
 ![Get mod folder](docs/img/Screenshot_20210303_220002.png)
 
-
 ### Presets
+
 - When setting up a new game, a default profile is created as well (controls at the top middle). Should you need multiple configurations, this is where you can control this.
 
-
 ### Add mods
+
 Lastly, you add mods via the "Add mods"-group to the top left.
 
 You can add mods from two different ways:
+
 - Add mod from archive: Extract target archive to a folder inside Mod buddy, where you then can choose the folder inside
-- Add mod from folder: Choose a folder which contains a mod 
-	- This is intended for mods that have multiple patches (such as the texture pack mentioned above) or when the user didn't use the above mentioned button.
-- Add mod from source: 
+- Add mod from folder: Choose a folder which contains a mod
+  - This is intended for mods that have multiple patches (such as the texture pack mentioned above) or when the user didn't use the above mentioned button.
+- Add mod from source:
 
 ### Sources
+
 ![Sources up](docs/img/sources_ui.png)
 
 Sources is a more complex package handler, where you can organize your mod sources.
 A mod registered as a source will ease tasks such as:
+
 - updating
 - applying patches/multiple instances pr. mod
 - bulk downloads
@@ -81,6 +84,6 @@ A source is given with the pattern `URL[;subfolder]`, where one line correlates 
 
 At the moment it supports links from Moddb and Github
 
-
 ## Disclaimer
+
 Before you want to try this out: I'm not a UX-designer, a QT-developer nor a cat. This is a personal project which i have found a practical use for.

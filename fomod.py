@@ -1,23 +1,32 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 from xml.etree import ElementTree
-from PySide6.QtWidgets import QLabel, QRadioButton, QApplication
-from PySide6.QtCore import Qt, QCoreApplication
+
+from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QLabel,QRadioButton, QGridLayout, QWizard, QWizardPage, QTextEdit
+from PySide6.QtWidgets import (
+    QApplication,
+    QGridLayout,
+    QLabel,
+    QRadioButton,
+    QTextEdit,
+    QWizard,
+    QWizardPage,
+)
+
 
 class FomodParser:
-    def __init__(self, mod_folder:Path):
+    def __init__(self, mod_folder: Path):
         self.mod_folder = mod_folder
-        self.fomod_file = Path(mod_folder) / 'fomod/ModuleConfig.xml'
+        self.fomod_file = Path(mod_folder) / "fomod/ModuleConfig.xml"
 
         xml = ElementTree.parse(self.fomod_file).getroot()
-        
+
         self.module_name = xml.findtext("./moduleName")
         self.install_steps = [InstallSteps(x) for x in xml.findall("./installSteps")]
 
         self.build_ui()
-        
+
     def build_ui(self):
         self.ui = QWizard()
         for install_steps_collection in self.install_steps:
@@ -30,17 +39,21 @@ class FomodParser:
                         for plugin_collection in group.plugin_collection:
                             for i, plugin in enumerate(plugin_collection.plugins):
                                 target_radio = QRadioButton(plugin.name)
-                                new_layout.addWidget(target_radio, i+1, 0)
+                                new_layout.addWidget(target_radio, i + 1, 0)
                                 target_radio.toggled.connect(plugin.update)
-                                new_layout.addWidget(QTextEdit(plugin.description), i+1, 1)
+                                new_layout.addWidget(
+                                    QTextEdit(plugin.description), i + 1, 1
+                                )
 
                                 if plugin.image:
-                                    parsed_img = self.mod_folder / plugin.image.replace('\\', '/')
+                                    parsed_img = self.mod_folder / plugin.image.replace(
+                                        "\\", "/"
+                                    )
                                     img = QPixmap(parsed_img)
-                                
+
                                     test = QLabel()
                                     test.setPixmap(img)
-                                    new_layout.addWidget(test, i+1, 2)
+                                    new_layout.addWidget(test, i + 1, 2)
                             new_page.setTitle(install_step.name)
                             new_page.setLayout(new_layout)
                             self.ui.addPage(new_page)
@@ -63,48 +76,56 @@ class FomodParser:
                                     for files in plugin.files_collection:
                                         print(plugin.enabled, group.name)
                                         for folder in files.folders:
-                                            tmp[f"{str(i)}{group.name}"] = folder.to_dict()
+                                            tmp[f"{str(i)}{group.name}"] = (
+                                                folder.to_dict()
+                                            )
         return tmp
+
 
 class InstallSteps:
     def __init__(self, xml: ElementTree.Element):
         self.order = xml.get("order")
-        
+
         self.install_steps = [InstallStep(x) for x in xml.findall("./installStep")]
 
 
 class InstallStep:
-    def __init__(self, xml:ElementTree.Element):
+    def __init__(self, xml: ElementTree.Element):
         self.name = xml.get("name")
-        self.optional_file_groups = [OptionalFileGroups(x) for x in xml.findall("./optionalFileGroups")]
+        self.optional_file_groups = [
+            OptionalFileGroups(x) for x in xml.findall("./optionalFileGroups")
+        ]
 
 
 class OptionalFileGroups:
-    def __init__(self, xml:ElementTree.Element):
+    def __init__(self, xml: ElementTree.Element):
         self.order = xml.get("order")
         self.groups = [Group(x) for x in xml.findall("./group")]
 
+
 class Group:
-    def __init__(self, xml:ElementTree.Element):
+    def __init__(self, xml: ElementTree.Element):
         self.name = xml.get("name")
         self.type = xml.get("type")
         self.plugin_collection = [Plugins(x) for x in xml.findall("./plugins")]
 
+
 class Plugins:
-    def __init__(self, xml:ElementTree.Element):
+    def __init__(self, xml: ElementTree.Element):
         self.name = xml.get("name")
         self.description = xml.findtext("description")
         self.plugins = [Plugin(x) for x in xml.findall("./plugin")]
 
+
 class Plugin:
-    def __init__(self, xml:ElementTree.Element):
+    def __init__(self, xml: ElementTree.Element):
         self.name = xml.get("name")
         self.description = xml.findtext("description")
         self.flags = [x.get("name") for x in xml.findall("./conditionFlags/flag")]
         self.enabled = False
-        
+
         try:
-            self.image = xml.find("./image").get('path')
+            self.image = xml.find("./image").get("path")
         except AttributeError:
             self.image = None
 
@@ -116,11 +137,12 @@ class Plugin:
 
 
 class Files:
-    def __init__(self, xml:ElementTree.Element):
+    def __init__(self, xml: ElementTree.Element):
         self.folders = [Folder(x) for x in xml.findall("./folder")]
 
+
 class Folder:
-    def __init__(self, xml:ElementTree.Element):
+    def __init__(self, xml: ElementTree.Element):
         self.source = xml.get("source")
         self.destination = xml.get("destination")
         self.priority = xml.get("priority")
@@ -130,7 +152,7 @@ class Folder:
         return {
             "source": self.source,
             "destination": self.destination,
-            "priority": self.priority
+            "priority": self.priority,
         }
 
 
@@ -144,4 +166,3 @@ if __name__ == "__main__":
     app.exec()
 
     parser.handle_results()
-
