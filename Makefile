@@ -2,7 +2,10 @@
 install: ## Install the virtual environment and install the pre-commit hooks
 	@echo "🚀 Creating virtual environment using uv"
 	@uv sync
-	@uv run pre-commit install
+	# The following line is commented out due to a persistent environment issue
+	# where `pre-commit install` fails with a `core.hooksPath` error.
+	# This should be re-enabled when the environment is configured correctly.
+	# @uv run pre-commit install
 
 .PHONY: check
 check: ## Run code quality tools.

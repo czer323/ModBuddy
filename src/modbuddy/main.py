@@ -7,7 +7,7 @@ from os import path as ospath
 from pathlib import Path
 from typing import Any, cast
 
-import patoolib
+import patoolib  # type: ignore[import-untyped]
 from PySide6.QtCore import QCoreApplication, QFile, QIODevice, Qt
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import (

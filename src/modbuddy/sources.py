@@ -56,17 +56,16 @@ class SourceBase:
         raise NotImplementedError
 
     def check_if_file_exists(self, downloaded_file: Path) -> bool:
-        try:
-            if self.checksum:
-                # check if the file is actually downloaded
-                with open(downloaded_file, "rb") as fp:
-                    file_bytes = fp.read()
-                    readable_hash = hashlib.md5(file_bytes).hexdigest()
-                    if readable_hash == self.checksum:
-                        return True
-        except FileNotFoundError:
+        if not self.checksum:
             return False
-        return False
+
+        if not downloaded_file.is_file():
+            return False
+
+        file_bytes = downloaded_file.read_bytes()
+        readable_hash = hashlib.md5(file_bytes).hexdigest()
+
+        return readable_hash == self.checksum
 
     def get_download_url(self) -> str:
         raise NotImplementedError
@@ -96,24 +95,25 @@ class SourceModdb(SourceBase):
         site = BeautifulSoup(site_content, "html.parser")
 
         def safe_find_text(tag: str) -> str:
-            node = site.find(text=tag)
-            if (
-                node is None
-                or not hasattr(node, "parent")
-                or node.parent is None
-                or not hasattr(node.parent, "parent")
-                or node.parent.parent is None
-            ):
+            node = site.find(string=tag)
+            if node is None or node.parent is None:
                 return ""
-            parent = node.parent.parent
-            if hasattr(parent, "time") and parent.time is not None and "datetime" in getattr(parent.time, "attrs", {}):
-                dt_val = parent.time["datetime"]
+
+            parent = node.parent
+
+            # For date/time, the value is in the 'datetime' attribute of the <time> tag
+            if parent.name == "time" and "datetime" in parent.attrs:
+                dt_val = parent["datetime"]
                 if isinstance(dt_val, str):
                     return dt_val
                 if isinstance(dt_val, list):
                     return dt_val[0] if dt_val else ""
-            if hasattr(parent, "span") and parent.span is not None and hasattr(parent.span, "text"):
-                return parent.span.text.strip()
+
+            # For other tags, assume the value is in the next sibling span
+            next_sibling_span = parent.find_next_sibling("span")
+            if next_sibling_span:
+                return next_sibling_span.text.strip()
+
             return ""
 
         def safe_head_title(site: BeautifulSoup) -> str:

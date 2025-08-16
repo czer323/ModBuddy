@@ -137,3 +137,75 @@ def test_initialize_configs_regular_and_fomod(temp_dirs: tuple[Path, Path]) -> N
     assert (dst / "B").is_dir()
     assert (dst / "B" / "optB.txt").exists()
     assert (dst / "B" / "optB.txt").read_text() == "optBdata"
+
+
+def test_add_mod_empty_src(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that add_mod runs without error when the source directory is empty."""
+    src, dst = temp_dirs
+    pack = ModPack(src, dst)
+    pack.add_mod()
+    assert not any(dst.iterdir())
+
+
+def test_add_mod_with_existing_files(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that add_mod correctly overwrites existing files in the destination directory."""
+    src, dst = temp_dirs
+    (src / "a.txt").write_text("new_A")
+    (dst / "a.txt").write_text("old_A")
+    pack = ModPack(src, dst)
+    pack.add_mod()
+    assert (dst / "a.txt").read_text() == "new_A"
+
+
+def test_convert_from_input_to_output_case_insensitive(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests the case_sensitive=False option in convert_from_input_to_output."""
+    src, dst = temp_dirs
+    pack = ModPack(src, dst, case_sensitive=False)
+    in_path = src / "Foo.txt"
+    out_path = pack.convert_from_input_to_output(in_path)
+    assert out_path == dst / "foo.txt"
+
+
+def test_initialize_mod_configs_disabled_mod(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that disabled mods are not installed."""
+    src, dst = temp_dirs
+    mod1 = src / "mod1"
+    mod1.mkdir()
+    (mod1 / "file1.txt").write_text("mod1data")
+    mod_list = {"DisabledMod": "mod1"}
+    profile_payload = [{"name": "DisabledMod", "enabled": False, "type": "regular"}]
+    initialize_mod_configs(profile_payload, mod_list, src, dst)
+    assert not (dst / "file1.txt").exists()
+
+
+def test_initialize_mod_configs_missing_mod_path(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that a mod is skipped if its path is not in the mod_list."""
+    src, dst = temp_dirs
+    profile_payload = [{"name": "MissingMod", "enabled": True, "type": "regular"}]
+    initialize_mod_configs(profile_payload, {}, src, dst)
+    assert not any(dst.iterdir())
+
+
+def test_initialize_mod_configs_empty_fomod_options(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that initialize_mod_configs handles fomod mods with no options."""
+    src, dst = temp_dirs
+    mod1 = src / "mod1"
+    mod1.mkdir()
+    mod_list = {"FomodMod": "mod1"}
+    profile_payload = [
+        {"name": "FomodMod", "enabled": True, "type": "fomod", "options": {}}
+    ]
+    initialize_mod_configs(profile_payload, mod_list, src, dst)
+    assert not any(dst.iterdir())
+
+
+def test_handle_symlinking_existing_file(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that handle_symlinking correctly replaces an existing file."""
+    src, dst = temp_dirs
+    file = src / "file.txt"
+    file.write_text("new_data")
+    out_file = dst / "file.txt"
+    out_file.write_text("old_data")
+    pack = ModPack(src, dst)
+    pack.handle_symlinking(file)
+    assert out_file.read_text() == "new_data"
