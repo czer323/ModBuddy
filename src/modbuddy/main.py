@@ -21,11 +21,11 @@ from PySide6.QtWidgets import (
     QWidget,  # pylint: disable=unused-import
 )
 
-import models
-import modpack
-import sources
-from fomod import FomodParser
-from ui_protocols import EditModDialogProtocol, ModBuddyUIProtocol
+from modbuddy.fomod import FomodParser
+from modbuddy.models import ModModel, SourceModel
+from modbuddy.modpack import ModPack, initialize_mod_configs
+from modbuddy.sources import SourceGitHub, SourceModdb, get_class_classifier
+from modbuddy.ui_protocols import EditModDialogProtocol, ModBuddyUIProtocol
 
 PROJECT_PATH = Path(ospath.dirname(sys.argv[0])).resolve()
 INPUT_FOLDER = PROJECT_PATH / Path("input")
@@ -46,8 +46,8 @@ class Modbuddy:
     settings: dict[str, Any]
     is_dirty: bool
     target_preset_path: Path
-    modmodel: models.ModModel | None
-    sourcemodel: models.SourceModel | None
+    modmodel: ModModel | None
+    sourcemodel: SourceModel | None
     # The UI is typed as ModBuddyUIProtocol to inform mypy of all expected attributes
     ui: ModBuddyUIProtocol
 
@@ -115,9 +115,7 @@ class Modbuddy:
         last_game = None
         try:
             if SETTINGS_NAME.exists():
-                self.settings = json.loads(
-                    Path(SETTINGS_NAME).read_text(encoding="utf-8")
-                )
+                self.settings = json.loads(Path(SETTINGS_NAME).read_text(encoding="utf-8"))
                 last_game = self.settings.get("lastactivity", {}).get("game")
             else:
                 self.settings = {}
@@ -129,9 +127,7 @@ class Modbuddy:
             preset_path = GAME_PRESET_FOLDER / f"{last_game}.json"
             try:
                 if preset_path.exists():
-                    self.game_setting = json.loads(
-                        preset_path.read_text(encoding="utf-8")
-                    )
+                    self.game_setting = json.loads(preset_path.read_text(encoding="utf-8"))
             except (FileNotFoundError, json.JSONDecodeError):
                 self.game_setting = {}
 
@@ -181,7 +177,8 @@ class Modbuddy:
             self.ui.profile_combobox.setCurrentIndex(index)
 
     def update_last_activity(self, game: str = "", profile: str = "") -> None:
-        """Update the current last_activity and store it.
+        """
+        Update the current last_activity and store it.
 
         :param game: Current game, defaults to ""
         :type game: str, optional
@@ -194,9 +191,7 @@ class Modbuddy:
         }
         self.settings["lastactivity"] = last_activity
         # print(last_activity)
-        Path(SETTINGS_NAME).write_text(
-            json.dumps(self.settings, indent=4), encoding="utf-8"
-        )
+        Path(SETTINGS_NAME).write_text(json.dumps(self.settings, indent=4), encoding="utf-8")
 
     def retrieve_last_activity(self) -> None:
         """Update the UI with contents from lastactivity and initialize UI for last-used game/profile."""
@@ -236,7 +231,8 @@ class Modbuddy:
             #     )
 
     def create_new_mod_table_config(self) -> None:
-        """Create a new mod table configuration.
+        """
+        Create a new mod table configuration.
 
         Take the current mod setup presented,
         create a new mod preset and save it to the settings
@@ -262,21 +258,18 @@ class Modbuddy:
     def write_preset_to_config(self) -> None:
         """Update the current mod setup to its respective profile."""
         # Defensive: Check if target_preset_path is set and valid
-        if not hasattr(self, "target_preset_path") or not isinstance(
-            getattr(self, "target_preset_path", None), Path
-        ):
+        if not hasattr(self, "target_preset_path") or not isinstance(getattr(self, "target_preset_path", None), Path):
             QMessageBox.critical(
                 cast("QWidget", self.ui),
                 "Error",
                 "No profile/game selected. Please select a profile before saving.",
             )
             return
-        Path(self.target_preset_path).write_text(
-            json.dumps(self.game_setting, indent=4), encoding="utf-8"
-        )
+        Path(self.target_preset_path).write_text(json.dumps(self.game_setting, indent=4), encoding="utf-8")
 
     def load_profile(self, target_profile: str) -> None:
-        """Initialize a chosen preset to the mod table.
+        """
+        Initialize a chosen preset to the mod table.
 
         :param target_profile: A profile that exists inside profiles in 'game_setting.json'
         :type target_profile: str
@@ -333,9 +326,7 @@ class Modbuddy:
 
     def create_new_game(self) -> None:
         """Start a wizard to create a new game."""
-        game_mod_folder_str = QFileDialog.getExistingDirectory(
-            cast("QMainWindow", self.ui), "Get mod folder"
-        )
+        game_mod_folder_str = QFileDialog.getExistingDirectory(cast("QMainWindow", self.ui), "Get mod folder")
         if not game_mod_folder_str:
             return
         game_mod_folder = Path(game_mod_folder_str)
@@ -347,9 +338,7 @@ class Modbuddy:
             game_mod_folder.parent.stem,
         )
         if ok:
-            QMessageBox.information(
-                cast("QMainWindow", self.ui), "Done", "Game is set up and ready to go!"
-            )
+            QMessageBox.information(cast("QMainWindow", self.ui), "Done", "Game is set up and ready to go!")
 
         game_folder = game_mod_folder.parent
         backup_mod_folder = game_folder / ".mods"
@@ -360,9 +349,7 @@ class Modbuddy:
         initial_mod_content_folder = backup_mod_folder / "base_content"
         initial_mod_content_folder.mkdir(exist_ok=True)
 
-        x = modpack.ModPack(
-            game_mod_folder, initial_mod_content_folder, case_sensitive=True
-        )
+        x = ModPack(game_mod_folder, initial_mod_content_folder, case_sensitive=True)
         x.add_mod()
 
         base_content_name = "Base content"
@@ -373,15 +360,14 @@ class Modbuddy:
             "sources": [],
             "mods": {base_content_name: str(initial_mod_content_folder.resolve())},
         }
-        Path(GAME_PRESET_FOLDER / f"{game_preset_name}.json").write_text(
-            json.dumps(preset, indent=4), encoding="utf-8"
-        )
+        Path(GAME_PRESET_FOLDER / f"{game_preset_name}.json").write_text(json.dumps(preset, indent=4), encoding="utf-8")
         self.update_last_activity(game_preset_name, "default")
         self.update_game_combobox()
         self.load_game(game_preset_name)
 
     def load_game(self, target_preset: str) -> None:
-        """Load a new game and its presets.
+        """
+        Load a new game and its presets.
 
         :Param target_preset: Name of game (set when creating a new game)
         :type target_preset: str
@@ -391,9 +377,7 @@ class Modbuddy:
         # Load the game preset file
         try:
             if self.target_preset_path.exists():
-                self.game_setting = json.loads(
-                    self.target_preset_path.read_text(encoding="utf-8")
-                )
+                self.game_setting = json.loads(self.target_preset_path.read_text(encoding="utf-8"))
             else:
                 self.game_setting = {}
         except (FileNotFoundError, json.JSONDecodeError):
@@ -421,7 +405,9 @@ class Modbuddy:
             cast("QMainWindow", self.ui),
             "Select archives to be installed",
             str(Path.home()),
-            "Supported archives (*.7z *.cb7 *.bz2 *.cab *.Z *.cpio *.deb *.dms *.flac *.gz *.iso *.lrz *.lha *.lzh *.lz *.lzma *.lzo *.rpm *.rar *.cbr *.rz *.shn *.tar *.cbt *.xz *.zip *.jar *.cbz *.zoo)",
+            "Supported archives (*.7z *.cb7 *.bz2 *.cab *.Z *.cpio *.deb *.dms *.flac "
+            "*.gz *.iso *.lrz *.lha *.lzh *.lz *.lzma *.lzo *.rpm *.rar *.cbr *.rz "
+            "*.shn *.tar *.cbt *.xz *.zip *.jar *.cbz *.zoo)",
         )
         # Defensive: If dialog canceled or no files selected, return early
         if not archives or not archives[0]:
@@ -438,9 +424,7 @@ class Modbuddy:
             try:
                 folder_name = Path(archive).stem
                 target_folder = Path(default_mod_folder) / folder_name
-                patoolib.extract_archive(
-                    archive, outdir=str(target_folder), interactive=False
-                )
+                patoolib.extract_archive(archive, outdir=str(target_folder), interactive=False)
             except OSError as e:
                 QMessageBox.warning(
                     cast("QMainWindow", self.ui),
@@ -452,9 +436,7 @@ class Modbuddy:
                     x = QMessageBox.question(
                         cast("QMainWindow", self.ui),
                         "",
-                        (
-                            "Fomod folder detected. Do you want to parse it as a fomod-mod?"
-                        ),
+                        ("Fomod folder detected. Do you want to parse it as a fomod-mod?"),
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     )
                     if x == QMessageBox.StandardButton.Yes:
@@ -463,7 +445,8 @@ class Modbuddy:
                 self.add_mod(target_folder)
 
     def add_mod(self, folder_path: Path) -> None:
-        """Import a mod to the current game.
+        """
+        Import a mod to the current game.
 
         :param folder_path: A path representing the 'root' of the mod folder
         :type folder_path: Path
@@ -511,7 +494,8 @@ class Modbuddy:
         self.write_preset_to_config()
 
     def add_row_to_mods(self, name: str, path: Path, modtype: str = "basic") -> None:
-        """Add a given mod to the current game.
+        """
+        Add a given mod to the current game.
 
         :param name: unique name of the mod
         :type name: str
@@ -520,13 +504,9 @@ class Modbuddy:
         :param modtype: How is this mod installed?
         :type modtype: str
         """
-        if "mods" not in self.game_setting or not isinstance(
-            self.game_setting["mods"], dict
-        ):
+        if "mods" not in self.game_setting or not isinstance(self.game_setting["mods"], dict):
             self.game_setting["mods"] = {}
-        if "profiles" not in self.game_setting or not isinstance(
-            self.game_setting["profiles"], dict
-        ):
+        if "profiles" not in self.game_setting or not isinstance(self.game_setting["profiles"], dict):
             self.game_setting["profiles"] = {}
         self.game_setting["mods"][name] = str(path)
         for mod_profile in self.game_setting["profiles"].values():
@@ -536,10 +516,9 @@ class Modbuddy:
             self.modmodel.layoutChanged.emit()
         self.set_dirty_status(True)
 
-    def add_row_to_mods_fomod_style(
-        self, name: str, path: Path, fomod_results: dict
-    ) -> None:
-        """Add a given mod to the current game with fomod-related presets.
+    def add_row_to_mods_fomod_style(self, name: str, path: Path, fomod_results: dict) -> None:
+        """
+        Add a given mod to the current game with fomod-related presets.
 
         :param name: unique name of the mod
         :type name: str
@@ -548,14 +527,12 @@ class Modbuddy:
         """
         self.game_setting["mods"][name] = str(path)
         for mod_profile in self.game_setting["profiles"].values():
-            mod_profile.append(
-                {
-                    "name": name,
-                    "enabled": True,
-                    "type": "fomod",
-                    "options": fomod_results,
-                }
-            )
+            mod_profile.append({
+                "name": name,
+                "enabled": True,
+                "type": "fomod",
+                "options": fomod_results,
+            })
         # Emit layoutChanged only once after all profiles are updated
         if self.modmodel is not None and hasattr(self.modmodel, "layoutChanged"):
             self.modmodel.layoutChanged.emit()
@@ -635,14 +612,15 @@ class Modbuddy:
             pass
 
     def init_tablewidget(self, profile: str = "") -> None:
-        """Initialize the table with mods.
+        """
+        Initialize the table with mods.
 
         :param profile: Profile name, defaults to ""
         :type profile: str, optional
         """
         if not profile:
             profile = self.get_current_profile()
-        self.modmodel = models.ModModel(settings=self.game_setting, profile=profile)
+        self.modmodel = ModModel(settings=self.game_setting, profile=profile)
         self.ui.mod_list.setModel(self.modmodel)
         self.ui.mod_list.resizeColumnToContents(MODNAME_COLUMN)
 
@@ -651,7 +629,7 @@ class Modbuddy:
         sources_list = self.game_setting.get("sources")
         if sources_list is None:
             sources_list = []
-        self.sourcemodel = models.SourceModel(sources=sources_list)
+        self.sourcemodel = SourceModel(sources=sources_list)
         self.ui.source_tableview.setModel(self.sourcemodel)
 
     def update_sources(self) -> None:
@@ -668,7 +646,7 @@ class Modbuddy:
         sources_list = self.game_setting.get("sources") or []
         total_length = len(sources_list)
         for i, source in enumerate(sources_list):
-            sourceclass = sources.get_class_classifier(source["url"])
+            sourceclass = get_class_classifier(source["url"])
             test = sourceclass.from_dict(source)
             test.update()
             source.update(test.to_dict())
@@ -676,11 +654,9 @@ class Modbuddy:
         if self.sourcemodel is not None and hasattr(self.sourcemodel, "layoutChanged"):
             self.sourcemodel.layoutChanged.emit()
         self.write_preset_to_config()
-        QMessageBox.information(
-            cast("QMainWindow", self.ui), "Done", "Mod table are up to date"
-        )
+        QMessageBox.information(cast("QMainWindow", self.ui), "Done", "Mod table are up to date")
 
-    def _assert_mods_is_added_from_source(self, mod: "sources.SourceModdb") -> None:
+    def _assert_mods_is_added_from_source(self, mod: "SourceModdb") -> None:
         """Assert that the subfolders from a mod exists. If they do not exist, create them as new mods."""
         default_mod_folder = Path(self.game_setting.get("default_mod_folder") or "mods")
         mod_settings = self.game_setting["mods"]
@@ -706,12 +682,8 @@ class Modbuddy:
         default_mod_folder = self.game_setting.get("default_mod_folder") or "mods"
         downloaded_something = False
         for i, source in enumerate(sources_list):
-            source_object = sources.get_class_classifier(source["url"]).from_dict(
-                source
-            )
-            print(
-                f"{source_object.title} {source_object.installed} - {source_object.updated}"
-            )
+            source_object = get_class_classifier(source["url"]).from_dict(source)
+            print(f"{source_object.title} {source_object.installed} - {source_object.updated}")
             if source_object.updated:
                 last_updated = max(source_object.added, source_object.updated)
             else:
@@ -725,18 +697,14 @@ class Modbuddy:
                     source_object.download_file(dl_path)
                 try:
                     print(f"{i + 1}/{total_length} - {downloaded_file=}")
-                    patoolib.extract_archive(
-                        str(downloaded_file), outdir=str(dl_path), interactive=False
-                    )
-                    if isinstance(source_object, sources.SourceGitHub):
-                        git_downloaded_root = [
-                            p for p in dl_path.iterdir() if p.is_dir()
-                        ]
+                    patoolib.extract_archive(str(downloaded_file), outdir=str(dl_path), interactive=False)
+                    if isinstance(source_object, SourceGitHub):
+                        git_downloaded_root = [p for p in dl_path.iterdir() if p.is_dir()]
                         if len(git_downloaded_root) == 1:
                             git_folder = git_downloaded_root[0]
                             git_folder.rename(dl_path / source_object.foldername)
                     source_object.installed = datetime.now(UTC)
-                    if isinstance(source_object, sources.SourceModdb):
+                    if isinstance(source_object, SourceModdb):
                         self._assert_mods_is_added_from_source(source_object)
                     source.update(source_object.to_dict())
                     print(f"{i + 1}/{total_length} - finished")
@@ -746,9 +714,7 @@ class Modbuddy:
             else:
                 print(f"{i + 1}/{total_length} - No need to download")
         if downloaded_something:
-            QMessageBox.information(
-                cast("QMainWindow", self.ui), "Done", "Sources are downloaded"
-            )
+            QMessageBox.information(cast("QMainWindow", self.ui), "Done", "Sources are downloaded")
         else:
             QMessageBox.warning(
                 cast("QMainWindow", self.ui),
@@ -779,10 +745,10 @@ class Modbuddy:
             try:
                 if ";" in urlgroup:
                     url, folders = urlgroup.split(";", 1)
-                    sourceclass = sources.get_class_classifier(url)
+                    sourceclass = get_class_classifier(url)
                     tmp_source = sourceclass.from_url(url, folders.split(";"))
                 else:
-                    sourceclass = sources.get_class_classifier(urlgroup)
+                    sourceclass = get_class_classifier(urlgroup)
                     tmp_source = sourceclass.from_url(urlgroup)
                 sources_list.append(tmp_source.to_dict())
                 print(f"Added {tmp_source.title}")
@@ -818,9 +784,7 @@ class Modbuddy:
     def clean_target_modfolder(self) -> None:
         target_modfolder = Path(self.game_setting["game_mod_folder"])
         if not target_modfolder:
-            QMessageBox.warning(
-                cast("QMainWindow", self.ui), "", "No target modfolder found"
-            )
+            QMessageBox.warning(cast("QMainWindow", self.ui), "", "No target modfolder found")
         else:
             del_path_target = target_modfolder.resolve()
             messagebox_answer = QMessageBox.question(
@@ -832,9 +796,7 @@ everything inside this folder?\n{del_path_target}",
 
             if messagebox_answer == QMessageBox.StandardButton.Yes:
                 self.recursive_rmdir(del_path_target)
-                QMessageBox.information(
-                    cast("QMainWindow", self.ui), "Done", "Mods are cleaned!"
-                )
+                QMessageBox.information(cast("QMainWindow", self.ui), "Done", "Mods are cleaned!")
 
     def letsgo_mydudes(self) -> None:
         """Commit the current setup and fire the modifications."""
@@ -845,7 +807,8 @@ everything inside this folder?\n{del_path_target}",
             QMessageBox.critical(
                 cast("QWidget", self.ui),
                 "Error",
-                "Current game configuration is missing the 'game_mod_folder' key. Please ensure you have loaded a valid game, or recreate the game setup.",
+                "Current game configuration is missing the 'game_mod_folder' key. Please ensure you have loaded a "
+                "valid game, or recreate the game setup.",
             )
             return
         target_mod_folder = Path(self.game_setting["game_mod_folder"])
@@ -859,29 +822,23 @@ everything inside this folder?\n{del_path_target}",
             "Do you want to proceed?"
         )
         msg_box.setDetailedText(enabled_mods)
-        msg_box.setStandardButtons(
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel
-        )
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
         msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
         ret = msg_box.exec()
         if ret == QMessageBox.StandardButton.Yes:
             self.write_preset_to_config()
             try:
                 self.recursive_rmdir(target_mod_folder.resolve())
-                modpack.initialize_configs(
+                initialize_mod_configs(
                     profile,
                     mod_list,
                     INPUT_FOLDER,
                     Path(self.game_setting["game_mod_folder"]),
                 )
             except (OSError, ValueError, TypeError) as e:
-                QMessageBox.warning(
-                    cast("QMainWindow", self.ui), "", f"Something went wrong\n{e}"
-                )
+                QMessageBox.warning(cast("QMainWindow", self.ui), "", f"Something went wrong\n{e}")
             else:
-                QMessageBox.information(
-                    cast("QMainWindow", self.ui), "Done", "Mods are loaded!"
-                )
+                QMessageBox.information(cast("QMainWindow", self.ui), "Done", "Mods are loaded!")
                 self.set_dirty_status(False)
 
     def begin_fomod_parsing(self, base_folder: Path) -> None:
@@ -901,9 +858,7 @@ everything inside this folder?\n{del_path_target}",
         assert isinstance(self.fomod, FomodParser)
         results = self.fomod.handle_results()
 
-        self.add_row_to_mods_fomod_style(
-            str(self.fomod.module_name), self.fomod.mod_folder, results
-        )
+        self.add_row_to_mods_fomod_style(str(self.fomod.module_name), self.fomod.mod_folder, results)
         self.fomod = None
         print(results)
 

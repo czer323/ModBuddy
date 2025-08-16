@@ -17,13 +17,15 @@ from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt
 
 
 class ModModel(QtCore.QAbstractTableModel):
-    """Table model for game mods in a Qt QTableView.
+    """
+    Table model for game mods in a Qt QTableView.
 
     Attributes:
         mod_order: List of mod dictionaries for the current profile.
         headers: Tuple of column header names.
         profile: The current profile name or identifier.
         game_setting: Dictionary of game settings and profiles.
+
     """
 
     mod_order: list[dict[str, Any]]
@@ -31,9 +33,7 @@ class ModModel(QtCore.QAbstractTableModel):
     profile: Any
     game_setting: dict[str, Any]
 
-    def __init__(
-        self, settings: dict[str, Any], profile: Any, parent: Any = None
-    ) -> None:
+    def __init__(self, settings: dict[str, Any], profile: Any, parent: Any = None) -> None:
         super().__init__(parent)
         self.profile = profile
         self.game_setting = settings
@@ -42,7 +42,8 @@ class ModModel(QtCore.QAbstractTableModel):
         self.parse_mods_from_settings()
 
     def parse_mods_from_settings(self) -> None:
-        """Updates mod_order from game_setting for the current profile.
+        """
+        Updates mod_order from game_setting for the current profile.
 
         Reads the game_setting dictionary and sets mod_order to the list of mods
         for the current profile.
@@ -67,7 +68,8 @@ class ModModel(QtCore.QAbstractTableModel):
         orientation: Qt.Orientation,
         role: int = Qt.ItemDataRole.DisplayRole,
     ) -> Any:
-        """Returns header data for the table columns.
+        """
+        Returns header data for the table columns.
 
         Args:
             section: Column index.
@@ -76,22 +78,22 @@ class ModModel(QtCore.QAbstractTableModel):
 
         Returns:
             Header name for the given section and orientation, or default.
+
         """
-        if (
-            role == Qt.ItemDataRole.DisplayRole
-            and orientation == Qt.Orientation.Horizontal
-        ):
+        if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
             return self.headers[section]
         return super().headerData(section, orientation, role)
 
     def parse_path(self, row: dict[str, Any]) -> Any:
-        """Returns a display-friendly mod path.
+        """
+        Returns a display-friendly mod path.
 
         Args:
             row: Dictionary representing a mod.
 
         Returns:
             Relative mod path with default folder replaced, or None.
+
         """
         mod_settings = self.game_setting["mods"]
         if not isinstance(mod_settings, dict):
@@ -107,7 +109,8 @@ class ModModel(QtCore.QAbstractTableModel):
         index: QtCore.QModelIndex | QtCore.QPersistentModelIndex,
         role: int = Qt.ItemDataRole.DisplayRole,
     ) -> Any:
-        """Returns data for a given cell in the table.
+        """
+        Returns data for a given cell in the table.
 
         Args:
             index: QModelIndex or QPersistentModelIndex for the cell.
@@ -115,27 +118,24 @@ class ModModel(QtCore.QAbstractTableModel):
 
         Returns:
             Data for the cell, formatted for display or check state.
+
         """
         cur_profile = self.game_setting["profiles"][self.profile]
 
         row = cur_profile[index.row()]
         assert isinstance(row, dict)
 
-        if (
-            role == Qt.ItemDataRole.CheckStateRole
-            and self.headers[index.column()] == "enabled"
-        ):
+        if role == Qt.ItemDataRole.CheckStateRole and self.headers[index.column()] == "enabled":
             if row.get("enabled"):
                 return Qt.CheckState.Checked
-            else:
-                return Qt.CheckState.Unchecked
+            return Qt.CheckState.Unchecked
         if role == Qt.ItemDataRole.DisplayRole:
             if self.headers[index.column()] == "type":
                 return row.get("type", "basic")
             if self.headers[index.column()] == "path":
                 return self.parse_path(row)
-            else:
-                return row.get(self.headers[index.column()])
+            return row.get(self.headers[index.column()])
+        return None
 
     def setData(
         self,
@@ -143,7 +143,8 @@ class ModModel(QtCore.QAbstractTableModel):
         value: Any,
         role: int = Qt.ItemDataRole.EditRole,
     ) -> bool:
-        """Sets data for a cell, supporting checkboxes for 'enabled'.
+        """
+        Sets data for a cell, supporting checkboxes for 'enabled'.
 
         Args:
             index: QModelIndex or QPersistentModelIndex for the cell.
@@ -152,13 +153,11 @@ class ModModel(QtCore.QAbstractTableModel):
 
         Returns:
             True if data was set, otherwise result of base setData.
+
         """
         cur_profile = self.game_setting["profiles"][self.profile]
         assert isinstance(cur_profile, list)
-        if (
-            role == Qt.ItemDataRole.CheckStateRole
-            and self.headers[index.column()] == "enabled"
-        ):
+        if role == Qt.ItemDataRole.CheckStateRole and self.headers[index.column()] == "enabled":
             cur_profile[index.row()]["enabled"] = value == Qt.CheckState.Checked
             self.layoutChanged.emit()
             return True
@@ -166,55 +165,55 @@ class ModModel(QtCore.QAbstractTableModel):
         return super().setData(index, value, role=role)
 
     def flags(self, index: QModelIndex | QPersistentModelIndex) -> Qt.ItemFlag:
-        """Returns item flags for a cell, enabling checkboxes for 'enabled'.
+        """
+        Returns item flags for a cell, enabling checkboxes for 'enabled'.
 
         Args:
             index: QModelIndex or QPersistentModelIndex for the cell.
 
         Returns:
             Qt.ItemFlag for the cell.
+
         """
         if index.column() == 0:
-            return (
-                Qt.ItemFlag.ItemIsEnabled
-                | Qt.ItemFlag.ItemIsUserCheckable
-                | Qt.ItemFlag.ItemIsSelectable
-            )
+            return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsSelectable
         return super().flags(index)
 
-    def rowCount(
-        self, _index: QModelIndex | QPersistentModelIndex = QModelIndex()
-    ) -> int:
-        """Returns the number of rows in the model.
+    def rowCount(self, _index: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
+        """
+        Returns the number of rows in the model.
 
         Args:
             _index: QModelIndex or QPersistentModelIndex (unused).
 
         Returns:
             Number of rows (mods) in the current profile.
+
         """
         return len(self.mod_order)
 
-    def columnCount(
-        self, _index: QModelIndex | QPersistentModelIndex = QModelIndex()
-    ) -> int:
-        """Returns the number of columns in the model.
+    def columnCount(self, _index: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
+        """
+        Returns the number of columns in the model.
 
         Args:
             _index: QModelIndex or QPersistentModelIndex (unused).
 
         Returns:
             Number of columns in the table.
+
         """
         return len(self.headers)
 
 
 class SourceModel(QtCore.QAbstractTableModel):
-    """Table model for mod sources in a Qt QTableView.
+    """
+    Table model for mod sources in a Qt QTableView.
 
     Attributes:
         sources: List of source dictionaries.
         headers: Tuple of column header names.
+
     """
 
     sources: list[dict[str, Any]]
@@ -231,7 +230,8 @@ class SourceModel(QtCore.QAbstractTableModel):
         orientation: Qt.Orientation,
         role: int = Qt.ItemDataRole.DisplayRole,
     ) -> Any:
-        """Returns header data for the table columns.
+        """
+        Returns header data for the table columns.
 
         Args:
             section: Column index.
@@ -240,11 +240,9 @@ class SourceModel(QtCore.QAbstractTableModel):
 
         Returns:
             Header name for the given section and orientation, or default.
+
         """
-        if (
-            role == Qt.ItemDataRole.DisplayRole
-            and orientation == Qt.Orientation.Horizontal
-        ):
+        if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
             return self.headers[section]
         return super().headerData(section, orientation, role)
 
@@ -253,7 +251,8 @@ class SourceModel(QtCore.QAbstractTableModel):
         index: QtCore.QModelIndex | QtCore.QPersistentModelIndex,
         role: int = Qt.ItemDataRole.DisplayRole,
     ) -> Any:
-        """Returns data for a given cell in the table.
+        """
+        Returns data for a given cell in the table.
 
         Args:
             index: QModelIndex or QPersistentModelIndex for the cell.
@@ -261,34 +260,36 @@ class SourceModel(QtCore.QAbstractTableModel):
 
         Returns:
             Data for the cell, formatted for display.
+
         """
         row = self.sources[index.row()]
         assert isinstance(row, dict)
         if role == Qt.ItemDataRole.DisplayRole:
             return row.get(self.headers[index.column()])
+        return None
 
-    def rowCount(
-        self, _index: QModelIndex | QPersistentModelIndex = QModelIndex()
-    ) -> int:
-        """Returns the number of rows in the model.
+    def rowCount(self, _index: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
+        """
+        Returns the number of rows in the model.
 
         Args:
             _index: QModelIndex or QPersistentModelIndex (unused).
 
         Returns:
             Number of rows (sources) in the model.
+
         """
         return len(self.sources)
 
-    def columnCount(
-        self, _index: QModelIndex | QPersistentModelIndex = QModelIndex()
-    ) -> int:
-        """Returns the number of columns in the model.
+    def columnCount(self, _index: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
+        """
+        Returns the number of columns in the model.
 
         Args:
             _index: QModelIndex or QPersistentModelIndex (unused).
 
         Returns:
             Number of columns in the table.
+
         """
         return len(self.headers)

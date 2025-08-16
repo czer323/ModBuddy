@@ -1,4 +1,5 @@
-"""Fomod module for parsing and displaying FOMOD installer configs.
+"""
+Fomod module for parsing and displaying FOMOD installer configs.
 
 This module provides classes to parse FOMOD XML files, build a Qt-based wizard UI
 for mod installation, and handle user selections/results. It supports flexible mod
@@ -29,7 +30,8 @@ from PySide6.QtWidgets import (
 
 
 class FomodParser:
-    """Parser for FOMOD installer XML and builder for Qt wizard UI.
+    """
+    Parser for FOMOD installer XML and builder for Qt wizard UI.
 
     Attributes:
         mod_folder: Path to the mod's root directory.
@@ -37,13 +39,16 @@ class FomodParser:
         module_name: Name of the module parsed from XML.
         install_steps: List of InstallSteps objects.
         ui: QWizard instance for the installer UI.
+
     """
 
     def __init__(self, mod_folder: Path) -> None:
-        """Initializes the parser and builds the UI.
+        """
+        Initializes the parser and builds the UI.
 
         Args:
             mod_folder: Path to the mod's root directory.
+
         """
         self.mod_folder = mod_folder
         self.fomod_file = Path(mod_folder) / "fomod/ModuleConfig.xml"
@@ -67,20 +72,14 @@ class FomodParser:
                                 target_radio = QRadioButton(plugin.name)
                                 new_layout.addWidget(target_radio, i + 1, 0)
                                 target_radio.toggled.connect(plugin.update)
-                                new_layout.addWidget(
-                                    QTextEdit(plugin.description), i + 1, 1
-                                )
+                                new_layout.addWidget(QTextEdit(plugin.description), i + 1, 1)
                                 if plugin.image:
-                                    parsed_img = self.mod_folder / plugin.image.replace(
-                                        "\\", "/"
-                                    )
+                                    parsed_img = self.mod_folder / plugin.image.replace("\\", "/")
                                     img = QPixmap(parsed_img)
                                     test = QLabel()
                                     test.setPixmap(img)
                                     new_layout.addWidget(test, i + 1, 2)
-                        new_page.setTitle(
-                            install_step.name if install_step.name is not None else ""
-                        )
+                        new_page.setTitle(install_step.name if install_step.name is not None else "")
                         new_page.setLayout(new_layout)
                         self.ui.addPage(new_page)
         final_page = QWizardPage()
@@ -89,10 +88,12 @@ class FomodParser:
         self.ui.addPage(final_page)
 
     def handle_results(self) -> dict[str, dict[str, str | None]]:
-        """Collects enabled plugin results after user selection.
+        """
+        Collects enabled plugin results after user selection.
 
         Returns:
             A dictionary mapping install step/group keys to folder dicts.
+
         """
         tmp = {}
         print("handling results")
@@ -111,75 +112,89 @@ class FomodParser:
 
 
 class InstallSteps:
-    """Represents a collection of install steps from FOMOD XML.
+    """
+    Represents a collection of install steps from FOMOD XML.
 
     Attributes:
         order: The order attribute from XML.
         install_steps: List of InstallStep objects.
+
     """
 
     def __init__(self, xml: ElementTree.Element) -> None:
-        """Initializes the install steps collection.
+        """
+        Initializes the install steps collection.
 
         Args:
             xml: XML element for installSteps.
+
         """
         self.order = xml.get("order")
         self.install_steps = [InstallStep(x) for x in xml.findall("./installStep")]
 
 
 class InstallStep:
-    """Represents a single install step in the FOMOD installer.
+    """
+    Represents a single install step in the FOMOD installer.
 
     Attributes:
         name: Name of the install step.
         optional_file_groups: List of OptionalFileGroups objects.
+
     """
 
     def __init__(self, xml: ElementTree.Element) -> None:
-        """Initializes the install step.
+        """
+        Initializes the install step.
 
         Args:
             xml: XML element for installStep.
+
         """
         self.name = xml.get("name")
-        self.optional_file_groups = [
-            OptionalFileGroups(x) for x in xml.findall("./optionalFileGroups")
-        ]
+        self.optional_file_groups = [OptionalFileGroups(x) for x in xml.findall("./optionalFileGroups")]
 
 
 class OptionalFileGroups:
-    """Represents a collection of optional file groups in an install step.
+    """
+    Represents a collection of optional file groups in an install step.
 
     Attributes:
         order: The order attribute from XML.
         groups: List of Group objects.
+
     """
 
     def __init__(self, xml: ElementTree.Element) -> None:
-        """Initializes the optional file groups.
+        """
+        Initializes the optional file groups.
 
         Args:
             xml: XML element for optionalFileGroups.
+
         """
         self.order = xml.get("order")
         self.groups = [Group(x) for x in xml.findall("./group")]
 
 
 class Group:
-    """Represents a group of plugins in an optional file group.
+    """
+    Represents a group of plugins in an optional file group.
 
     Attributes:
         name: Name of the group.
         type: Type of the group.
         plugin_collection: List of Plugins objects.
+
     """
 
     def __init__(self, xml: ElementTree.Element) -> None:
-        """Initializes the group.
+        """
+        Initializes the group.
 
         Args:
             xml: XML element for group.
+
         """
         self.name = xml.get("name")
         self.type = xml.get("type")
@@ -187,19 +202,23 @@ class Group:
 
 
 class Plugins:
-    """Represents a collection of plugins in a group.
+    """
+    Represents a collection of plugins in a group.
 
     Attributes:
         name: Name of the plugins collection.
         description: Description of the plugins collection.
         plugins: List of Plugin objects.
+
     """
 
     def __init__(self, xml: ElementTree.Element) -> None:
-        """Initializes the plugins collection.
+        """
+        Initializes the plugins collection.
 
         Args:
             xml: XML element for plugins.
+
         """
         self.name = xml.get("name")
         self.description = xml.findtext("description")
@@ -207,7 +226,8 @@ class Plugins:
 
 
 class Plugin:
-    """Represents a single plugin option in a group.
+    """
+    Represents a single plugin option in a group.
 
     Attributes:
         name: Name of the plugin.
@@ -216,13 +236,16 @@ class Plugin:
         enabled: Whether the plugin is enabled by user selection.
         image: Path to the plugin image, if any.
         files_collection: List of Files objects.
+
     """
 
     def __init__(self, xml: ElementTree.Element) -> None:
-        """Initializes the plugin.
+        """
+        Initializes the plugin.
 
         Args:
             xml: XML element for plugin.
+
         """
         self.name = xml.get("name")
         self.description = xml.findtext("description")
@@ -236,54 +259,66 @@ class Plugin:
         self.files_collection = [Files(x) for x in xml.findall("./files")]
 
     def update(self, arg: bool) -> None:
-        """Updates the enabled state of the plugin.
+        """
+        Updates the enabled state of the plugin.
 
         Args:
             arg: Boolean indicating if the plugin is enabled.
+
         """
         self.enabled = arg
 
 
 class Files:
-    """Represents a collection of folders for a plugin's files.
+    """
+    Represents a collection of folders for a plugin's files.
 
     Attributes:
         folders: List of Folder objects.
+
     """
 
     def __init__(self, xml: ElementTree.Element) -> None:
-        """Initializes the files collection.
+        """
+        Initializes the files collection.
 
         Args:
             xml: XML element for files.
+
         """
         self.folders = [Folder(x) for x in xml.findall("./folder")]
 
 
 class Folder:
-    """Represents a folder mapping for mod files.
+    """
+    Represents a folder mapping for mod files.
 
     Attributes:
         source: Source folder path.
         destination: Destination folder path.
         priority: Priority of the folder.
+
     """
 
     def __init__(self, xml: ElementTree.Element) -> None:
-        """Initializes the folder mapping.
+        """
+        Initializes the folder mapping.
 
         Args:
             xml: XML element for folder.
+
         """
         self.source = xml.get("source")
         self.destination = xml.get("destination")
         self.priority = xml.get("priority")
 
     def to_dict(self) -> dict[str, str | None]:
-        """Converts the folder mapping to a dictionary.
+        """
+        Converts the folder mapping to a dictionary.
 
         Returns:
             A dict with keys 'source', 'destination', and 'priority'.
+
         """
         return {
             "source": self.source,

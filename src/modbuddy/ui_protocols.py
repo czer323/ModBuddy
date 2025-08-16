@@ -52,6 +52,7 @@ class ModBuddyUIProtocol(Protocol):
         source_download: Button to download sources.
         source_edit: Button to edit sources.
         source_tableview: Table view for sources.
+
     """
 
     game_combobox: QComboBox
@@ -89,6 +90,7 @@ class EditModDialogProtocol(Protocol):
     Methods:
         show(): Show the dialog window.
         exec_(): Execute the dialog and return result code.
+
     """
 
     nameLineEdit: QLineEdit  # noqa: N815
@@ -100,10 +102,12 @@ class EditModDialogProtocol(Protocol):
         ...
 
     def exec_(self) -> int:
-        """Execute the dialog and return the result code.
+        """
+        Execute the dialog and return the result code.
 
         Returns:
             int: Dialog result code (e.g., QDialog.Accepted or QDialog.Rejected).
+
         """
         ...
 

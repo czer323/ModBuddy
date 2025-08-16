@@ -1,15 +1,25 @@
+# pylint: disable=redefined-outer-name
+
 import os
 import shutil
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 
-from modpack import ModPack
+from modbuddy.modpack import ModPack, initialize_mod_configs
 
 
 @pytest.fixture
-def temp_dirs():
+def temp_dirs() -> Generator[tuple[Path, Path], None, None]:
+    """
+    Creates temporary source and destination directories for use in tests.
+
+    Yields:
+        tuple[Path, Path]: Source and destination directory paths.
+
+    """
     src = Path(tempfile.mkdtemp())
     dst = Path(tempfile.mkdtemp())
     yield src, dst
@@ -17,7 +27,8 @@ def temp_dirs():
     shutil.rmtree(dst)
 
 
-def test_convert_from_input_to_output_basic(temp_dirs):
+def test_convert_from_input_to_output_basic(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that a file in the source root is correctly mapped to the output root."""
     src, dst = temp_dirs
     (src / "foo.txt").write_text("bar")
     pack = ModPack(src, dst)
@@ -25,7 +36,8 @@ def test_convert_from_input_to_output_basic(temp_dirs):
     assert out_path == dst / "foo.txt"
 
 
-def test_convert_from_input_to_output_subdir(temp_dirs):
+def test_convert_from_input_to_output_subdir(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that a file in a source subdirectory is mapped to the corresponding output subdirectory."""
     src, dst = temp_dirs
     subdir = src / "sub"
     subdir.mkdir()
@@ -35,7 +47,8 @@ def test_convert_from_input_to_output_subdir(temp_dirs):
     assert out_path == dst / "sub" / "baz.txt"
 
 
-def test_create_folder(temp_dirs):
+def test_create_folder(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that a source subfolder is created in the output directory."""
     src, dst = temp_dirs
     subdir = src / "subfolder"
     subdir.mkdir()
@@ -45,7 +58,8 @@ def test_create_folder(temp_dirs):
     assert (dst / "subfolder").is_dir()
 
 
-def test_handle_symlinking(temp_dirs):
+def test_handle_symlinking(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that a file is hardlinked from source to output and retains its content and inode."""
     src, dst = temp_dirs
     file = src / "file.txt"
     file.write_text("data")
@@ -60,7 +74,8 @@ def test_handle_symlinking(temp_dirs):
         assert os.stat(str(file)).st_ino == os.stat(str(out_file)).st_ino
 
 
-def test_add_mod(temp_dirs):
+def test_add_mod(temp_dirs: tuple[Path, Path]) -> None:
+    """Tests that all files and subdirectories in the source are added to the output directory."""
     src, dst = temp_dirs
     (src / "a.txt").write_text("A")
     (src / "b.txt").write_text("B")
@@ -76,7 +91,13 @@ def test_add_mod(temp_dirs):
     assert (dst / "sub" / "c.txt").read_text() == "C"
 
 
-def test_initialize_configs_regular_and_fomod(temp_dirs):
+def test_initialize_configs_regular_and_fomod(temp_dirs: tuple[Path, Path]) -> None:
+    """
+    Tests initialization of regular and fomod mods, verifying correct file and option placement in output.
+
+    Ensures both regular mod files and fomod option files are created in the expected output structure.
+
+    """
     src, dst = temp_dirs
     # Regular mod
     mod1 = src / "mod1"
@@ -102,9 +123,8 @@ def test_initialize_configs_regular_and_fomod(temp_dirs):
             },
         },
     ]
-    from modpack import initialize_configs
+    initialize_mod_configs(profile_payload, mod_list, src, dst)
 
-    initialize_configs(profile_payload, mod_list, src, dst)
     # Check regular mod file
     assert (dst / "file1.txt").exists()
     assert (dst / "file1.txt").read_text() == "mod1data"

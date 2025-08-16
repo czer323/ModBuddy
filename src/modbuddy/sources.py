@@ -106,31 +106,18 @@ class SourceModdb(SourceBase):
             ):
                 return ""
             parent = node.parent.parent
-            if (
-                hasattr(parent, "time")
-                and parent.time is not None
-                and "datetime" in getattr(parent.time, "attrs", {})
-            ):
+            if hasattr(parent, "time") and parent.time is not None and "datetime" in getattr(parent.time, "attrs", {}):
                 dt_val = parent.time["datetime"]
                 if isinstance(dt_val, str):
                     return dt_val
                 if isinstance(dt_val, list):
                     return dt_val[0] if dt_val else ""
-            if (
-                hasattr(parent, "span")
-                and parent.span is not None
-                and hasattr(parent.span, "text")
-            ):
+            if hasattr(parent, "span") and parent.span is not None and hasattr(parent.span, "text"):
                 return parent.span.text.strip()
             return ""
 
         def safe_head_title(site: BeautifulSoup) -> str:
-            if (
-                site.head
-                and hasattr(site.head, "title")
-                and site.head.title
-                and hasattr(site.head.title, "string")
-            ):
+            if site.head and hasattr(site.head, "title") and site.head.title and hasattr(site.head.title, "string"):
                 return str(site.head.title.string)
             return ""
 
@@ -144,11 +131,7 @@ class SourceModdb(SourceBase):
         def safe_download_url(site: BeautifulSoup) -> str:
             mirror_tag = site.find(id="downloadmirrorstoggle")
 
-            if (
-                mirror_tag
-                and isinstance(mirror_tag, Tag)
-                and "href" in mirror_tag.attrs
-            ):
+            if mirror_tag and isinstance(mirror_tag, Tag) and "href" in mirror_tag.attrs:
                 return str(mirror_tag["href"]).strip()
             return ""
 
@@ -180,10 +163,7 @@ class SourceModdb(SourceBase):
         foldername = ""
         if hasattr(site, "get"):
             foldername_val = site.get("foldername")
-            if isinstance(foldername_val, str):
-                foldername = foldername_val
-            else:
-                foldername = title.rsplit(".", 1)[0] if title else ""
+            foldername = foldername_val if isinstance(foldername_val, str) else title.rsplit(".", 1)[0] if title else ""
         else:
             foldername = title.rsplit(".", 1)[0] if title else ""
 
@@ -214,14 +194,10 @@ class SourceModdb(SourceBase):
             updated = datetime.fromisoformat(
                 updated_str
                 if updated_str is not None
-                else (
-                    added_str if added_str is not None else "1900-01-01 00:00:00+00:00"
-                )
+                else (added_str if added_str is not None else "1900-01-01 00:00:00+00:00")
             )
         except ValueError:
-            updated = datetime.fromisoformat(
-                added_str if added_str is not None else "1900-01-01 00:00:00+00:00"
-            )
+            updated = datetime.fromisoformat(added_str if added_str is not None else "1900-01-01 00:00:00+00:00")
 
         filename = entry.get("filename") or ""
         foldername = entry.get("foldername")
@@ -289,12 +265,7 @@ class SourceModdb(SourceBase):
 
         # Defensive title extraction
         self.title = ""
-        if (
-            site.head
-            and hasattr(site.head, "title")
-            and site.head.title
-            and hasattr(site.head.title, "string")
-        ):
+        if site.head and hasattr(site.head, "title") and site.head.title and hasattr(site.head.title, "string"):
             self.title = str(site.head.title.string)
 
         # Defensive filename extraction
@@ -332,11 +303,7 @@ class SourceModdb(SourceBase):
             and added_node.parent.parent
         ):
             parent = added_node.parent.parent
-            if (
-                hasattr(parent, "time")
-                and parent.time
-                and "datetime" in getattr(parent.time, "attrs", {})
-            ):
+            if hasattr(parent, "time") and parent.time and "datetime" in getattr(parent.time, "attrs", {}):
                 dt_val = parent.time["datetime"]
 
                 if isinstance(dt_val, str):
@@ -358,11 +325,7 @@ class SourceModdb(SourceBase):
                 and updated_node.parent.parent
             ):
                 parent = updated_node.parent.parent
-                if (
-                    hasattr(parent, "time")
-                    and parent.time
-                    and "datetime" in getattr(parent.time, "attrs", {})
-                ):
+                if hasattr(parent, "time") and parent.time and "datetime" in getattr(parent.time, "attrs", {}):
                     dt_val = parent.time["datetime"]
                     if isinstance(dt_val, str):
                         self.updated = datetime.fromisoformat(dt_val)
@@ -410,17 +373,13 @@ class SourceModdb(SourceBase):
     def get_download_url(self) -> str:
         """Retrieve the actual download link."""
         download = self.BASE_URL + str(self.download_url)
-        mirror_site = BeautifulSoup(
-            requests.get(download, timeout=30).text, "html.parser"
-        )
+        mirror_site = BeautifulSoup(requests.get(download, timeout=30).text, "html.parser")
         target_href = ""
         if mirror_site.body and hasattr(mirror_site.body, "p") and mirror_site.body.p:
             p_tag = mirror_site.body.p
             if hasattr(p_tag, "a") and p_tag.a:
                 a_tag = p_tag.a
-                if hasattr(a_tag, "__getitem__") and "href" in getattr(
-                    a_tag, "attrs", {}
-                ):
+                if hasattr(a_tag, "__getitem__") and "href" in getattr(a_tag, "attrs", {}):
                     val = a_tag["href"]
                     if isinstance(val, str):
                         target_href = val
@@ -443,8 +402,7 @@ class SourceGitHub(SourceBase):
             return url
         user = url.split("/")[-2]
         project = url.split("/")[-1]
-        testing = f"https://api.github.com/repos/{user}/{project}"
-        return testing
+        return f"https://api.github.com/repos/{user}/{project}"
 
     @classmethod
     def from_url(cls, url: str, folders: list[str] | None = None) -> "SourceGitHub":
@@ -537,9 +495,7 @@ class SourceGitHub(SourceBase):
         self.title = x.get("name") if x.get("name") is not None else ""
         if not self.foldername:
             self.foldername = self.filename.rsplit(".", 1)[0]
-        self.description = (
-            x.get("description") if x.get("description") is not None else ""
-        )
+        self.description = x.get("description") if x.get("description") is not None else ""
         self.added = (
             datetime.fromisoformat(x.get("created_at"))
             if x.get("created_at") is not None
@@ -547,18 +503,12 @@ class SourceGitHub(SourceBase):
         )
 
         try:
-            self.updated = (
-                datetime.fromisoformat(x.get("pushed_at"))
-                if x.get("pushed_at") is not None
-                else self.added
-            )
+            self.updated = datetime.fromisoformat(x.get("pushed_at")) if x.get("pushed_at") is not None else self.added
         except (ValueError, TypeError):
             self.updated = self.added
         self.size = str(x.get("size")) if x.get("size") is not None else ""
         self.checksum = ""
-        self.download_url = (
-            f"{x.get('url')}/zipball" if x.get("url") is not None else ""
-        )
+        self.download_url = f"{x.get('url')}/zipball" if x.get("url") is not None else ""
 
     def get_download_url(self) -> str:
         """Retrieve the actual download link."""

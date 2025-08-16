@@ -1,0 +1,80 @@
+repos:
+-   repo: https://gitlab.com/vojko.pribudic.foss/pre-commit-update
+    rev: v0.8.0 # Insert the latest tag here
+    hooks:
+    -   id: pre-commit-update
+          # Example args (use your own configuration)
+          #args: [--dry-run, --exclude, black, --keep, isort, --tag-prefix, black, custom-version-v]
+
+          # - repo: local
+          #   hooks:
+          #     - id: clean-precommit-logs
+          #       name: clean precommit logs
+          #       entry: python scripts/clean_precommit_logs.py
+          #       language: system
+          #       always_run: true
+          #       stages: [pre-commit]
+          #       files:
+          #         ^precommit_logs/.*$
+          # - id: mypy-local
+          #   name: mypy-local
+          #   entry: uv run mypy
+          #   args:
+          #     [--exclude, .venv/Lib/site-packages/d3_item_salvager-0.1.0.dist-info]
+          #   language: system
+          #   types: [python]
+          #   log_file: precommit_logs/mypy-local.log
+
+-   repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.8.11
+    hooks:
+    -   id: uv-lock
+    -   id: uv-export
+
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+      # Ruff version.
+    rev: v0.12.9
+    hooks:
+      # Run the linter.
+    -   id: ruff-check
+        args: [--fix]
+          #log_file: precommit_logs/ruff-check.log
+
+          # Run the formatter.
+    -   id: ruff-format
+          #log_file: precommit_logs/ruff-format.log
+
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    -   id: check-added-large-files
+    -   id: check-ast
+        types: [python]
+    -   id: check-merge-conflict
+    -   id: detect-private-key
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+        types: [yaml]
+    -   id: check-toml
+        types: [toml]
+    -   id: check-json
+        exclude: ^.devcontainer/devcontainer.json
+        types: [json]
+    -   id: pretty-format-json
+        exclude: ^.devcontainer/devcontainer.json
+        args: [--autofix, --indent, "4", --no-sort-keys]
+        types: [json]
+    -   id: check-case-conflict
+    -   id: check-illegal-windows-names
+    -   id: check-symlinks
+    -   id: check-xml
+        types: [xml]
+    -   id: debug-statements
+        types: [python]
+    -   id: destroyed-symlinks
+    -   id: name-tests-test
+        args: [--pytest-test-first]
+        types: [python]
+    -   id: no-commit-to-branch
+        args: [--branch, main, --branch, staging]
