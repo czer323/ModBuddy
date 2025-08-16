@@ -159,11 +159,10 @@ class ModModel(QtCore.QAbstractTableModel):
             role == Qt.ItemDataRole.CheckStateRole
             and self.headers[index.column()] == "enabled"
         ):
-            if value == Qt.CheckState.Checked:
-                cur_profile[index.row()]["enabled"] = True
-            else:
-                cur_profile[index.row()]["enabled"] = False
-        self.layoutChanged.emit()
+            cur_profile[index.row()]["enabled"] = value == Qt.CheckState.Checked
+            self.layoutChanged.emit()
+            return True
+        # For other columns, fallback to default behavior
         return super().setData(index, value, role=role)
 
     def flags(self, index: QModelIndex | QPersistentModelIndex) -> Qt.ItemFlag:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3  # pylint: disable=unused-import
+import contextlib
 import json
 import sys
 from datetime import UTC, datetime
@@ -85,20 +86,54 @@ class Modbuddy:
             else:
                 print(f"Warning: UI missing attribute '{attr}'")
 
+        # Connect game combobox change to auto-load game and profile
+        if hasattr(self.ui, "game_combobox"):
+            self.ui.game_combobox.currentIndexChanged.connect(self.on_game_changed)
+
         self.update_game_combobox()
         self.init_tablewidget()
         self.retrieve_last_activity()
         self.init_sourcewidget()  # No argument, matches method signature
         self.update_fileview()
 
+    def on_game_changed(self) -> None:
+        """Auto-load game and first profile when game dropdown changes."""
+        game_name = self.ui.game_combobox.currentText()
+        if not game_name:
+            return
+        self.load_game(game_name)
+        # Auto-load first profile if available
+        profiles = list(self.game_setting.get("profiles", {}).keys())
+        if profiles:
+            self.load_profile(profiles[0])
+            self.update_last_activity(game=game_name, profile=profiles[0])
+
     def init_settings(self) -> None:
-        """Initial setup for mod buddy."""
+        """Initial setup for mod buddy. Loads last activity and game settings from disk."""
         GAME_PRESET_FOLDER.mkdir(exist_ok=True)
+        # Load last activity from settings.json
+        last_game = None
         try:
-            self.settings = json.loads(Path(SETTINGS_NAME).read_text(encoding="utf-8"))
+            if SETTINGS_NAME.exists():
+                self.settings = json.loads(
+                    Path(SETTINGS_NAME).read_text(encoding="utf-8")
+                )
+                last_game = self.settings.get("lastactivity", {}).get("game")
+            else:
+                self.settings = {}
         except (FileNotFoundError, json.JSONDecodeError):
             self.settings = {}
+        # Load game_setting from games/<last_game>.json
         self.game_setting = {}
+        if last_game:
+            preset_path = GAME_PRESET_FOLDER / f"{last_game}.json"
+            try:
+                if preset_path.exists():
+                    self.game_setting = json.loads(
+                        preset_path.read_text(encoding="utf-8")
+                    )
+            except (FileNotFoundError, json.JSONDecodeError):
+                self.game_setting = {}
 
     @staticmethod
     def recursive_rmdir(delpath: Path) -> None:
@@ -164,13 +199,41 @@ class Modbuddy:
         )
 
     def retrieve_last_activity(self) -> None:
-        """Update the UI with contents from lastactivity."""
+        """Update the UI with contents from lastactivity and initialize UI for last-used game/profile."""
         last = self.settings.get("lastactivity")
         if last:
             game = last.get("game")
             profile = last.get("profile")
-            self.load_game(game)
-            self.load_profile(profile)
+            # Only load if both game and profile are present and valid
+            if game:
+                # Set game dropdown to last used game
+                idx = self.ui.game_combobox.findText(game)
+                if idx != -1:
+                    self.ui.game_combobox.setCurrentIndex(idx)
+                self.load_game(game)
+            if profile:
+                # Set profile dropdown to last used profile
+                idx = self.ui.profile_combobox.findText(profile)
+                if idx != -1:
+                    self.ui.profile_combobox.setCurrentIndex(idx)
+                self.load_profile(profile)
+            # Initialize mod/source tables for loaded profile
+            self.init_tablewidget(profile)
+            self.init_sourcewidget()
+
+            game = last.get("game")
+            profile = last.get("profile")
+            # Only load if both game and profile are present and valid
+            if game and profile:
+                self.load_game(game)
+                self.load_profile(profile)
+            # Optionally, show a friendly welcome message if desired
+            # else:
+            #     QMessageBox.information(
+            #         cast("QWidget", self.ui),
+            #         "Welcome",
+            #         "Welcome to ModBuddy! Please create a new game and profile to get started."
+            #     )
 
     def create_new_mod_table_config(self) -> None:
         """Create a new mod table configuration.
@@ -198,6 +261,16 @@ class Modbuddy:
 
     def write_preset_to_config(self) -> None:
         """Update the current mod setup to its respective profile."""
+        # Defensive: Check if target_preset_path is set and valid
+        if not hasattr(self, "target_preset_path") or not isinstance(
+            getattr(self, "target_preset_path", None), Path
+        ):
+            QMessageBox.critical(
+                cast("QWidget", self.ui),
+                "Error",
+                "No profile/game selected. Please select a profile before saving.",
+            )
+            return
         Path(self.target_preset_path).write_text(
             json.dumps(self.game_setting, indent=4), encoding="utf-8"
         )
@@ -208,13 +281,35 @@ class Modbuddy:
         :param target_profile: A profile that exists inside profiles in 'game_setting.json'
         :type target_profile: str
         """
-        self.current_profile = self.game_setting["profiles"].get(target_profile)
+        profiles = self.game_setting.get("profiles")
+        if not profiles or not isinstance(profiles, dict):
+            QMessageBox.critical(
+                cast("QWidget", self.ui),
+                "Error",
+                "No profiles found in current game settings. Please create a profile first.",
+            )
+            return
+        self.current_profile = profiles.get(target_profile)
+        if self.current_profile is None:
+            QMessageBox.critical(
+                cast("QWidget", self.ui),
+                "Error",
+                f"Profile '{target_profile}' not found. Please select a valid profile.",
+            )
+            return
         self.init_tablewidget(target_profile)
         self.init_sourcewidget()  # No argument, matches method signature
 
     def load_current_profile(self) -> None:
         """Initialize the current preset (Chosen in GUI)."""
         preset = self.get_current_profile()
+        if not preset:
+            QMessageBox.critical(
+                cast("QWidget", self.ui),
+                "Error",
+                "No profile selected. Please select a profile to load.",
+            )
+            return
         self.load_profile(preset)
         self.update_last_activity()
 
@@ -258,14 +353,12 @@ class Modbuddy:
 
         game_folder = game_mod_folder.parent
         backup_mod_folder = game_folder / ".mods"
-        import contextlib
 
-        with contextlib.suppress(FileExistsError):
-            backup_mod_folder.mkdir()
+        backup_mod_folder.mkdir(exist_ok=True)
 
         # Create a backup of the original files, will be used for modding
         initial_mod_content_folder = backup_mod_folder / "base_content"
-        initial_mod_content_folder.mkdir()
+        initial_mod_content_folder.mkdir(exist_ok=True)
 
         x = modpack.ModPack(
             game_mod_folder, initial_mod_content_folder, case_sensitive=True
@@ -293,6 +386,24 @@ class Modbuddy:
         :Param target_preset: Name of game (set when creating a new game)
         :type target_preset: str
         """
+        # Set the target preset path for saving/loading
+        self.target_preset_path = GAME_PRESET_FOLDER / f"{target_preset}.json"
+        # Load the game preset file
+        try:
+            if self.target_preset_path.exists():
+                self.game_setting = json.loads(
+                    self.target_preset_path.read_text(encoding="utf-8")
+                )
+            else:
+                self.game_setting = {}
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.game_setting = {}
+        # Update UI elements
+        self.update_profile_combobox()
+        # Optionally, re-initialize mod/source tables if needed
+        if self.get_current_profile():
+            self.init_tablewidget(self.get_current_profile())
+            self.init_sourcewidget()
 
     def load_targeted_game(self) -> None:
         """Load the game selected in GUI."""
@@ -312,20 +423,17 @@ class Modbuddy:
             str(Path.home()),
             "Supported archives (*.7z *.cb7 *.bz2 *.cab *.Z *.cpio *.deb *.dms *.flac *.gz *.iso *.lrz *.lha *.lzh *.lz *.lzma *.lzo *.rpm *.rar *.cbr *.rz *.shn *.tar *.cbt *.xz *.zip *.jar *.cbz *.zoo)",
         )
-        if not archives:
+        # Defensive: If dialog canceled or no files selected, return early
+        if not archives or not archives[0]:
             return
         default_mod_folder = self.game_setting.get("default_mod_folder")
-        if not default_mod_folder:
-            QMessageBox.warning(
-                cast("QMainWindow", self.ui),
-                "",
-                (
-                    "Sorry, but your settings doesn't have "
-                    "a default destination for mods. Is it an old config?"
-                ),
+        if not default_mod_folder or not isinstance(default_mod_folder, str):
+            QMessageBox.critical(
+                cast("QWidget", self.ui),
+                "Error",
+                "Default mod folder is not set or invalid. Please set up your game before installing mods.",
             )
-
-        assert type(default_mod_folder) is str
+            return
         for archive in archives[0]:
             try:
                 folder_name = Path(archive).stem
@@ -370,26 +478,37 @@ class Modbuddy:
             return
 
         folder = Path(folder_choice)
-        if Path.exists(folder / "fomod"):
+        # Detect fomod folder
+        if (folder / "fomod").exists():
             x = QMessageBox.question(
                 cast("QMainWindow", self.ui),
                 "",
-                ("Fomod folder detected. Do you want to parse it as a fomod-mod?"),
+                "Fomod folder detected. Do you want to parse it as a fomod-mod?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if x == QMessageBox.StandardButton.Yes:
                 self.begin_fomod_parsing(folder)
-        else:
-            folder_name = Path(folder_path).stem
-            text, ok = QInputDialog.getText(
-                cast("QMainWindow", self.ui),
-                "Get mod name",
-                "Name input of mod:",
-                QLineEdit.EchoMode.Normal,
-                folder_name,
-            )
-            if ok:
-                self.add_row_to_mods(name=text, path=Path(folder))
+                return
+        # For non-fomod mods, prompt for mod name and add
+        mod_name, ok = QInputDialog.getText(
+            cast("QMainWindow", self.ui),
+            "Mod Name",
+            "Enter mod name:",
+            QLineEdit.EchoMode.Normal,
+            folder.name,
+        )
+        if not ok or not mod_name:
+            return
+        self.add_row_to_mods(name=mod_name, path=folder)
+
+        current_profile_name = self.get_current_profile()
+        self.init_tablewidget(current_profile_name)
+        # Optionally, select the last row (the newly added mod)
+        if self.ui.mod_list.model() is not None:
+            last_row = self.ui.mod_list.model().rowCount() - 1
+            if last_row >= 0:
+                self.ui.mod_list.selectRow(last_row)
+        self.write_preset_to_config()
 
     def add_row_to_mods(self, name: str, path: Path, modtype: str = "basic") -> None:
         """Add a given mod to the current game.
@@ -401,6 +520,14 @@ class Modbuddy:
         :param modtype: How is this mod installed?
         :type modtype: str
         """
+        if "mods" not in self.game_setting or not isinstance(
+            self.game_setting["mods"], dict
+        ):
+            self.game_setting["mods"] = {}
+        if "profiles" not in self.game_setting or not isinstance(
+            self.game_setting["profiles"], dict
+        ):
+            self.game_setting["profiles"] = {}
         self.game_setting["mods"][name] = str(path)
         for mod_profile in self.game_setting["profiles"].values():
             mod_profile.append({"name": name, "enabled": True, "type": modtype})
@@ -443,8 +570,6 @@ class Modbuddy:
             self._move_row(row, row - 1)
 
     def move_row_down(self) -> None:
-        import contextlib
-
         row = self.get_mod_list_row()
         with contextlib.suppress(IndexError):
             self._move_row(row, row + 1)
@@ -716,6 +841,13 @@ everything inside this folder?\n{del_path_target}",
         profile = self.game_setting["profiles"].get(self.get_current_profile())
         mod_list = self.game_setting["mods"]
         enabled_mods = ",\n".join([x.get("name") for x in profile if x.get("enabled")])
+        if "game_mod_folder" not in self.game_setting:
+            QMessageBox.critical(
+                cast("QWidget", self.ui),
+                "Error",
+                "Current game configuration is missing the 'game_mod_folder' key. Please ensure you have loaded a valid game, or recreate the game setup.",
+            )
+            return
         target_mod_folder = Path(self.game_setting["game_mod_folder"])
 
         msg_box = QMessageBox()

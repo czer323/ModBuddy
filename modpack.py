@@ -50,11 +50,14 @@ class ModPack:
         Returns:
             The corresponding output path in the destination folder.
         """
-        abs_input: str = str(in_path.resolve())
-        x: str = abs_input.replace(str(self.mod_folder.resolve()), "").lstrip("/")
+        try:
+            rel_path = in_path.relative_to(self.mod_folder)
+        except ValueError:
+            # If not a subpath, fallback to basename
+            rel_path = Path(in_path.name)
         if not self.case_sensitive:
-            x = x.lower()
-        output: Path = self.out_p.joinpath(x)
+            rel_path = Path(str(rel_path).lower())
+        output = self.out_p / rel_path
         return output
 
     def handle_symlinking(self, file_path: Path) -> None:
@@ -70,7 +73,7 @@ class ModPack:
             # print("DELETE {}".format(target_path))
             target_path.unlink()
         # print("{} --> {}".format(file_path.resolve(), target_path.resolve()))
-        file_path.hardlink_to(target_path)
+        target_path.hardlink_to(file_path)
 
     def create_folder(self, folder_path: Path) -> None:
         """Creates the corresponding destination folder for a mod folder.
@@ -127,10 +130,19 @@ def initialize_configs(
                 fomod_dest = fomod_x.get("destination")
                 if fomod_source is None or fomod_dest is None:
                     continue
-                fomod_target_folder: Path = input_folder / mod_path / fomod_source
+                fomod_target: Path = input_folder / mod_path / fomod_source
                 fomod_output_folder: Path = output_folder / fomod_dest
-                mod_pack = ModPack(fomod_target_folder, fomod_output_folder)
-                mod_pack.add_mod()
+                fomod_output_folder.mkdir(exist_ok=True)
+                if fomod_target.is_file():
+                    # Hardlink the file directly into the output folder
+                    out_file = fomod_output_folder / fomod_target.name
+                    if out_file.exists():
+                        out_file.unlink()
+                    out_file.hardlink_to(fomod_target)
+                else:
+                    # If it's a folder, use ModPack logic
+                    mod_pack = ModPack(fomod_target, fomod_output_folder)
+                    mod_pack.add_mod()
         else:
             regular_target_folder: Path = input_folder / mod_path
             mod_pack = ModPack(regular_target_folder, output_folder)
