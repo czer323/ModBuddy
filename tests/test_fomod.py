@@ -1,20 +1,25 @@
 # pylint: disable=redefined-outer-name
-import pytest
 from pathlib import Path
+from unittest.mock import MagicMock
 from xml.etree import ElementTree
+
+import pytest
+from _pytest.monkeypatch import MonkeyPatch
+
 from modbuddy.fomod import (
-    FomodParser,
-    InstallStep,
-    OptionalFileGroups,
-    Group,
-    Plugins,
-    Plugin,
     Files,
     Folder,
+    FomodParser,
+    Group,
+    InstallStep,
+    OptionalFileGroups,
+    Plugin,
+    Plugins,
 )
 
+
 @pytest.fixture
-def mock_fomod_xml_content():
+def mock_fomod_xml_content() -> str:
     """Provides mock FOMOD XML content."""
     return """
 <config>
@@ -45,10 +50,9 @@ def mock_fomod_xml_content():
 </config>
 """
 
-from unittest.mock import MagicMock
 
 @pytest.fixture
-def fomod_parser(tmp_path, mock_fomod_xml_content, monkeypatch):
+def fomod_parser(tmp_path: Path, mock_fomod_xml_content: str, monkeypatch: MonkeyPatch) -> FomodParser:
     """Creates a FomodParser instance with a mock UI."""
     mod_folder = tmp_path / "TestFomodMod"
     fomod_dir = mod_folder / "fomod"
@@ -64,11 +68,10 @@ def fomod_parser(tmp_path, mock_fomod_xml_content, monkeypatch):
     monkeypatch.setattr("modbuddy.fomod.QTextEdit", MagicMock())
     monkeypatch.setattr("modbuddy.fomod.QPixmap", MagicMock())
 
-    parser = FomodParser(mod_folder)
-    return parser
+    return FomodParser(mod_folder)
 
 
-def test_fomod_parser_init(fomod_parser: FomodParser):
+def test_fomod_parser_init(fomod_parser: FomodParser) -> None:
     """Tests that the FomodParser is initialized correctly."""
     assert fomod_parser.module_name == "Test Fomod Mod"
     assert len(fomod_parser.install_steps) == 1
@@ -95,7 +98,7 @@ def test_fomod_parser_init(fomod_parser: FomodParser):
     assert folder.destination == "."
 
 
-def test_folder_to_dict():
+def test_folder_to_dict() -> None:
     """Tests the Folder.to_dict() method."""
     xml_str = '<folder source="src" destination="dst" priority="1" />'
     xml_elem = ElementTree.fromstring(xml_str)
@@ -106,10 +109,13 @@ def test_folder_to_dict():
         "priority": "1",
     }
 
-def test_handle_results(fomod_parser: FomodParser):
+
+def test_handle_results(fomod_parser: FomodParser) -> None:
     """Tests the handle_results method of FomodParser."""
     # Simulate a user selecting "Option 1"
-    plugin1 = fomod_parser.install_steps[0].install_steps[0].optional_file_groups[0].groups[0].plugin_collection[0].plugins[0]
+    plugin1 = (
+        fomod_parser.install_steps[0].install_steps[0].optional_file_groups[0].groups[0].plugin_collection[0].plugins[0]
+    )
     plugin1.enabled = True
 
     results = fomod_parser.handle_results()

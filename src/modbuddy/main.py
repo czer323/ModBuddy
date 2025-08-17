@@ -340,14 +340,18 @@ class Modbuddy:
         if ok:
             QMessageBox.information(cast("QMainWindow", self.ui), "Done", "Game is set up and ready to go!")
 
-        game_folder = game_mod_folder.parent
+        # Use the selected mod folder as the game folder so backups are created
+        # inside the chosen directory (matches test expectations where the
+        # backup is under the selected game folder).
+        game_folder = game_mod_folder
         backup_mod_folder = game_folder / ".mods"
 
-        backup_mod_folder.mkdir(exist_ok=True)
+        # Ensure parent directories are created as needed
+        backup_mod_folder.mkdir(parents=True, exist_ok=True)
 
         # Create a backup of the original files, will be used for modding
         initial_mod_content_folder = backup_mod_folder / "base_content"
-        initial_mod_content_folder.mkdir(exist_ok=True)
+        initial_mod_content_folder.mkdir(parents=True, exist_ok=True)
 
         x = ModPack(game_mod_folder, initial_mod_content_folder, case_sensitive=True)
         x.add_mod()

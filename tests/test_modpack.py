@@ -192,9 +192,7 @@ def test_initialize_mod_configs_empty_fomod_options(temp_dirs: tuple[Path, Path]
     mod1 = src / "mod1"
     mod1.mkdir()
     mod_list = {"FomodMod": "mod1"}
-    profile_payload = [
-        {"name": "FomodMod", "enabled": True, "type": "fomod", "options": {}}
-    ]
+    profile_payload = [{"name": "FomodMod", "enabled": True, "type": "fomod", "options": {}}]
     initialize_mod_configs(profile_payload, mod_list, src, dst)
     assert not any(dst.iterdir())
 
